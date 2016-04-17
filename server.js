@@ -1,11 +1,18 @@
+/* global require, process */
 require('./extend');
 
 var Room = function() {
   this._avatars = [];
+  this._description = 'あなたはダンジョンの入り口に立っている。';
+};
+
+Room.prototype.description = function() {
+  return this._description;
 };
 
 Room.prototype.addAvatar = function(avatar) {
   this._avatars.push(avatar);
+  avatar.send(this._description);
 };
 
 Room.prototype.removeAvatar = function(avatar) {
@@ -25,7 +32,7 @@ Room.prototype.sendAll = function(message) {
 
 var MessageHandler = function() {
   this._handle = {};
-}
+};
 
 MessageHandler.prototype.handle = function(avatar, message) {
   if (message in this._handle) {
@@ -35,8 +42,8 @@ MessageHandler.prototype.handle = function(avatar, message) {
   }
 };
 
-MessageHandler.prototype.defaultHandle = function(avatar, message) {};
-MessageHandler.prototype.initialize = function(avatar) {};
+MessageHandler.prototype.defaultHandle = function() {};
+MessageHandler.prototype.initialize = function() {};
 
 var NameInputHandler = function() {
   MessageHandler.call(this);
@@ -44,58 +51,64 @@ var NameInputHandler = function() {
       yes: this.yes.bind(this),
       no: this.no.bind(this)
   };
-}
+};
 NameInputHandler.inherit(MessageHandler);
 
 NameInputHandler.prototype.initialize = function(avatar) {
-  avatar.send("Who are you?: ");
+  avatar.send('Who are you?: ');
 };
 
-NameInputHandler.prototype.yes = function(avatar, message) {
+NameInputHandler.prototype.yes = function(avatar) {
   if (avatar.isNoName()) {
-    avatar.send("you can't specifid name yes.");
+    avatar.send('you can\'t specifid name yes.');
     return;
   }
   avatar.setHandler(new MainHandler());
 };
 
-NameInputHandler.prototype.no = function(avatar, message) {
+NameInputHandler.prototype.no = function(avatar) {
   avatar.clearName();
   this.initialize(avatar);
-}
+};
 
 NameInputHandler.prototype.defaultHandle = function(avatar, message) {
   if (avatar.isNoName()) {
     avatar.setName(message);
   }
-  avatar.send("you name is " + avatar.name() + " OK? (yes or no)");
-}
+  avatar.send('you name is ' + avatar.name() + ' OK? (yes or no)');
+};
 
 var MainHandler = function() {
   MessageHandler.call(this);
   this._handle = {
     quit: this.quit,
-    logout: this.logout
+    logout: this.logout,
+    look: this.look
   };
-}
+};
 MainHandler.inherit(MessageHandler);
 
-MainHandler.prototype.quit = function(avatar, message) {
+MainHandler.prototype.quit = function() {
   process.exit();
-}
+};
 
-MainHandler.prototype.logout = function(avatar, message) {
+MainHandler.prototype.logout = function(avatar) {
   room.removeAvatar(avatar);
-  room.sendAll(avatar.name() + " leave.");
+  room.sendAll(avatar.name() + ' leave.');
   avatar.close();
-}
+};
+
+MainHandler.prototype.look= function(avatar) {
+  avatar.send(room.description());
+};
 
 MainHandler.prototype.defaultHandle = function(avatar, message) {
   room.sendAll(avatar.name() + ' say "' + message + '"');
 };
 
 MainHandler.prototype.initialize = function(avatar) {
-  avatar.send('Welcome ' + avatar.name() + "!");
+  avatar.send('Welcome ' + avatar.name() + '!');
+  room.addAvatar(avatar);
 };
 
 var Avatar = function(socket, handler) {
@@ -109,7 +122,7 @@ Avatar.prototype.name = function() {
 };
 
 Avatar.prototype.setName = function(newName) {
-  return this._name = newName;
+  this._name = newName;
 };
 
 Avatar.prototype.isNoName = function() {
@@ -117,7 +130,7 @@ Avatar.prototype.isNoName = function() {
 };
 
 Avatar.prototype.clearName = function() {
-  return this._name = null;
+  this._name = null;
 };
 
 Avatar.prototype.send = function(message) {
@@ -145,7 +158,6 @@ var ServerSocket = require('ws').Server,
 
 serverSocket.on('connection', function(socket) {
   var avatar = new Avatar(socket);
-  room.addAvatar(avatar);
   socket.on('message', (function(message) {
       this.handle(message);
   }).bind(avatar));
