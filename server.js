@@ -2,8 +2,25 @@
 require('./extend');
 
 var Room = function() {
+  this._name = 'Entrance of dungeon';
   this._avatars = [];
-  this._description = 'あなたはダンジョンの入り口に立っている。';
+  this._description = 'you are standing entrance of dungeon.';
+};
+
+Room.prototype.forEachAvatars = function(f) {
+  this._avatars.forEach(f);
+};
+
+Room.prototype.avatarNames = function() {
+  var names = [];
+  this.forEachAvatars(function(avatar) {
+    this.push(avatar.name());
+  }.bind(names));
+  return names;
+};
+
+Room.prototype.name = function() {
+  return this._name;
 };
 
 Room.prototype.description = function() {
@@ -12,7 +29,10 @@ Room.prototype.description = function() {
 
 Room.prototype.addAvatar = function(avatar) {
   this._avatars.push(avatar);
-  avatar.send(this._description);
+};
+
+Room.prototype.removeAvatar = function(avatar) {
+  this._avatars.remove(avatar);
 };
 
 Room.prototype.removeAvatar = function(avatar) {
@@ -44,6 +64,7 @@ MessageHandler.prototype.handle = function(avatar, message) {
 
 MessageHandler.prototype.defaultHandle = function() {};
 MessageHandler.prototype.initialize = function() {};
+MessageHandler.prototype.finalize = function() {};
 
 var NameInputHandler = function() {
   MessageHandler.call(this);
@@ -93,13 +114,19 @@ MainHandler.prototype.quit = function() {
 };
 
 MainHandler.prototype.logout = function(avatar) {
-  room.removeAvatar(avatar);
-  room.sendAll(avatar.name() + ' leave.');
-  avatar.close();
+  avatar.desconnect();
 };
 
-MainHandler.prototype.look= function(avatar) {
-  avatar.send(room.description());
+MainHandler.prototype.look = function(avatar) {
+  var name_list = room.avatarNames(),
+      message = '\n[' + room.name() + ']';
+  message += '\n' + room.description();
+  message += '\nAvatars:';
+  for (var i=0, d; i<name_list.length; i++) {
+    d = i % 3 === 0 ? '\n ' : ', ';
+    message += d + name_list[i];
+  }
+  avatar.send(message);
 };
 
 MainHandler.prototype.defaultHandle = function(avatar, message) {
@@ -107,8 +134,15 @@ MainHandler.prototype.defaultHandle = function(avatar, message) {
 };
 
 MainHandler.prototype.initialize = function(avatar) {
-  avatar.send('Welcome ' + avatar.name() + '!');
+  avatar.send('welcome ' + avatar.name() + '!');
   room.addAvatar(avatar);
+  room.sendAll(avatar.name() + ' come.');
+  this.look(avatar);
+};
+
+MainHandler.prototype.finalize = function(avatar) {
+  room.removeAvatar(avatar);
+  room.sendAll(avatar.name() + ' leave');
 };
 
 var Avatar = function(socket, handler) {
@@ -137,12 +171,16 @@ Avatar.prototype.send = function(message) {
   this._socket.send(message);
 };
 
-Avatar.prototype.close = function() {
+Avatar.prototype.desconnect = function() {
   this._socket.close();
 };
 
+Avatar.prototype.cleanup = function() {
+  this._handler.finalize(this);
+};
+
 Avatar.prototype.setHandler = function(handler) {
-  this._handler = handler; 
+  this._handler = handler;
   this._handler.initialize(this);
 };
 
@@ -160,6 +198,9 @@ serverSocket.on('connection', function(socket) {
   var avatar = new Avatar(socket);
   socket.on('message', (function(message) {
       this.handle(message);
+  }).bind(avatar));
+  socket.on('close', (function() {
+    this.cleanup();
   }).bind(avatar));
   avatar.setHandler(handler);
 });
