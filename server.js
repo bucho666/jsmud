@@ -1,6 +1,8 @@
 /* global require, process */
 require('./extend');
 
+// TODO room not global
+
 var Room = function() {
   this._name = 'Entrance of dungeon';
   this._avatars = [];
@@ -118,7 +120,7 @@ MainHandler.prototype.logout = function(avatar) {
 };
 
 MainHandler.prototype.look = function(avatar) {
-  var name_list = room.avatarNames(),
+  var name_list = room.avatarNames(), // TODO avatar.currentRoom()
       message = '\n[' + room.name() + ']';
   message += '\n' + room.description();
   message += '\nAvatars:';
@@ -130,17 +132,18 @@ MainHandler.prototype.look = function(avatar) {
 };
 
 MainHandler.prototype.defaultHandle = function(avatar, message) {
-  room.sendAll(avatar.name() + ' say "' + message + '"');
+  room.sendAll(avatar.name() + ' say "' + message + '"'); // TODO avatar.currentRoom()
 };
 
 MainHandler.prototype.initialize = function(avatar) {
   avatar.send('welcome ' + avatar.name() + '!');
-  room.addAvatar(avatar);
+  room.addAvatar(avatar); // TODO this.entranceRoom()
   room.sendAll(avatar.name() + ' come.');
   this.look(avatar);
 };
 
 MainHandler.prototype.finalize = function(avatar) {
+  // TODO avatar.currentRoom()
   room.removeAvatar(avatar);
   room.sendAll(avatar.name() + ' leave');
 };
@@ -149,6 +152,7 @@ var Avatar = function(socket, handler) {
   this._socket = socket;
   this._handler = handler;
   this._name = null;
+  this._currentRoom = null;
 };
 
 Avatar.prototype.name = function() {
@@ -191,7 +195,7 @@ Avatar.prototype.handle = function(message) {
 var ServerSocket = require('ws').Server,
     port = 6666,
     serverSocket = new ServerSocket({port: port}),
-    room = new Room(),
+    room = new Room(), // TODO to MainHandler
     handler = new NameInputHandler();
 
 serverSocket.on('connection', function(socket) {

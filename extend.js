@@ -12,3 +12,8 @@ Object.defineProperty(Array.prototype, 'remove', {
   if (index === -1) return;
   this.splice(index, 1);
 }});
+
+Object.defineProperty(Array.prototype, 'has', {
+  value: function(item) {
+  return this.indexOf(item) >= 0;
+}});
